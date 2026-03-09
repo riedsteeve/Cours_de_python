@@ -1,8 +1,9 @@
+#Petit test en réseau
 
-num :int = 20
+import socket
 
-num2 = 45
+target = "epsi.fr"
 
-v = num / num2
+ip = socket.gethostbyname(target)
 
-print(f"{round(v,5)}")
+print(f"L'ip de ce sites est : {ip}")
