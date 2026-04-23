@@ -41,16 +41,18 @@ score_display.write(f"Score: {score}  Vies: {lives}", font=("Courier", 14, "norm
 img_path = "images/vaisseau.gif"
 img_path2 = "images/vaisseau.png"
 img_path3 = "images/eneny.png"
+img_path4 = "images/image.png"
 
 
 
 window.register_shape(img_path)
 window.register_shape(img_path2)
 window.register_shape(img_path3)
+window.register_shape(img_path4)
 
 player = turtle.Turtle()
 player.speed(0)
-player.shape(img_path2)
+player.shape(img_path4)
 player.penup()
 player.goto(0, -250)
 player.setheading(90)
@@ -154,16 +156,18 @@ while lives > 0:
             score_display.write(f"Score: {score}  Vies: {lives}", font=("Courier", 14, "normal"))
             enemy.goto(-200 + ennemies.index(enemy) * 100, 250)  # Réinitialise la position de l'ennemi
             
-        if bullet_state == "fire" and enemy.distance(bullet) < 20:
+        if bullet_state == "fire" and enemy.distance(bullet) < 25:
             score += 10
             score_display.clear()
             score_display.write(f"Score: {score}  Vies: {lives}", font=("Courier", 14, "normal"))
             bullet.hideturtle()
             bullet_state = "ready"
+            bullet.sety(-1000)
             enemy.goto(-200 + ennemies.index(enemy) * 100, 250)  # Réinitialise la position de l'ennemi
     
 
     # Détection des collisions
+    
    
 
 # Affichage de l'écran de victoire
