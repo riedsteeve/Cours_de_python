@@ -32,10 +32,13 @@ def resource_path(relative_path):
 # --- Gestion du Son (Pygame) ---
 try:
     import pygame
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.mixer.init()
     SOUND_AVAILABLE = True
-except Exception:
+    print("[SON] pygame.mixer initialisé avec succès")
+except Exception as e:
     SOUND_AVAILABLE = False
+    print(f"[SON] Echec init pygame : {e}")
 
 EXPLOSION_SOUND = resource_path(os.path.join("sounds", "explosion.wav"))
 
@@ -143,7 +146,6 @@ def show_explosion(x, y):
             p.forward(5)
         window.update()
         time.sleep(0.01)
-
     for p in particles:
         p.hideturtle()
         _explosion_pool.append(p)
