@@ -32,18 +32,13 @@ ENEMY_IMGS_SRC = [
     os.path.join(IMAGE_DIR, "enemy2.png"),
     os.path.join(IMAGE_DIR, "enemy3.png"),
 ]
-BG_IMG = os.path.join(IMAGE_DIR, "galaxie.gif")
-
-# Facteurs d'échelle shapesize (forme turtle de base = 20x20 px)
-PLAYER_SCALE = (2.0, 2.0)
-ENEMY_SCALE  = PLAYER_SCALE
 
 SCREEN_WIDTH      = 800
 SCREEN_HEIGHT     = 600
 PLAYER_SPEED      = 20
 BULLET_SPEED      = 40
-ENEMY_SPEED       = 2
-ENEMY_SPAWN_DELAY = 40
+ENEMY_SPEED       = 1      # réduit (était 2)
+ENEMY_SPAWN_DELAY = 80     # réduit la fréquence (était 40)
 
 # =============================
 # FENÊTRE ET ÉTAT
@@ -58,7 +53,6 @@ score     = 0
 lives     = 3
 game_over = False
 
-# Affichage Score / Vies
 score_display = turtle.Turtle()
 score_display.hideturtle()
 score_display.penup()
@@ -125,7 +119,6 @@ if os.path.exists(PLAYER_IMG_SRC):
 else:
     player.shape("triangle")
     player.color("blue")
-player.shapesize(*PLAYER_SCALE)
 player.penup()
 player.goto(0, -SCREEN_HEIGHT // 2 + 50)
 
@@ -139,7 +132,7 @@ bullet.hideturtle()
 bullet_state = "ready"
 
 ENEMY_SHAPES = []
-for i, src in enumerate(ENEMY_IMGS_SRC):
+for src in ENEMY_IMGS_SRC:
     if os.path.exists(src):
         window.register_shape(src)
         ENEMY_SHAPES.append(src)
@@ -161,7 +154,6 @@ def spawn_enemy():
     else:
         enemy.shape("circle")
         enemy.color(["red", "purple", "orange"][idx % 3])
-    enemy.shapesize(*ENEMY_SCALE)
     enemy.penup()
     enemy.goto(random.randint(-350, 350), SCREEN_HEIGHT // 2)
     enemies.append(enemy)
@@ -231,7 +223,6 @@ while not game_over:
     for enemy in enemies[:]:
         enemy.sety(enemy.ycor() - ENEMY_SPEED)
 
-        # Collision Tir / Ennemi
         if bullet_state == "fire" and enemy.distance(bullet) < 25:
             ex, ey = enemy.xcor(), enemy.ycor()
             score += 10
@@ -244,11 +235,9 @@ while not game_over:
             play_sound()
             show_explosion(ex, ey)
 
-        # Collision Joueur / Ennemi
         elif enemy.distance(player) < 30:
             lose_life(enemy)
 
-        # Ennemi atteint la zone basse → perte de vie
         elif enemy.ycor() < -SCREEN_HEIGHT // 2 + 30:
             lose_life(enemy)
 
