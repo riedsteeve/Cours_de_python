@@ -32,8 +32,8 @@ def play_explosion():
         except Exception:
             pass
 
-# =============================
-# CONFIGURATION
+
+# CONFIGURATIONS
 # =============================
 IMAGE_DIR = "images"
 
