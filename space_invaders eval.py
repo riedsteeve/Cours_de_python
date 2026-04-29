@@ -1,224 +1,225 @@
-'''
-Bonjour à tous !
-
-Votre objectif aujourd'hui, que vous l'acceptiez ou non, va être de terminer 
-ce Space Invaders en utilisant la bibliothèque Turtle avec Python.
-
-Vous avez déjà un début de code permettant d'initialiser la fenêtre et le 
-joueur. Il vous donc rajouter les fonctionnalités suivantes :
-- l'initialisation des ennemis
-- le déplacement des ennemis vers le bas de l'écran ou sur les côtés
-- la capacité de pouvoir tirer pour le joueur
-- la gestion des collisions
-- plus tout autre bonus que vous jugerez adéquat !
-
-Bon courage !
-'''
-
 import turtle
 import time
 import random
-import winsound
+import os
 
-# Initialisation de la fenêtre
+# Winsound uniquement sur Windows
+try:
+    import winsound
+    SOUND_AVAILABLE = True
+except ImportError:
+    SOUND_AVAILABLE = False
+
+# =============================
+# CONFIGURATION
+# =============================
+IMAGE_DIR = "images"
+
+PLAYER_IMG_SRC  = os.path.join(IMAGE_DIR, "image.png")
+ENEMY_IMGS_SRC  = [
+    os.path.join(IMAGE_DIR, "enemy1.png"),
+    os.path.join(IMAGE_DIR, "enemy2.png"),
+    os.path.join(IMAGE_DIR, "enemy3.png"),
+]
+BG_IMG          = os.path.join(IMAGE_DIR, "galaxie.gif")
+EXPLOSION_SOUND = "explosion.wav"
+
+# Facteurs d'échelle pour shapesize (stretch_wid, stretch_len)
+# La forme turtle par défaut fait 20x20 px, donc 2.0 = 40px
+PLAYER_SCALE = (2.0, 2.0)
+ENEMY_SCALE  = PLAYER_SCALE  # Même taille que le joueur
+
+SCREEN_WIDTH      = 800
+SCREEN_HEIGHT     = 600
+PLAYER_SPEED      = 20
+BULLET_SPEED      = 40
+ENEMY_SPEED       = 2
+ENEMY_SPAWN_DELAY = 40
+
+# =============================
+# FENÊTRE ET ÉTAT
+# =============================
 window = turtle.Screen()
-window.title("Space Invaders")
-window.bgcolor("#000033")
-window.setup(width=800, height=600)
+window.title("Space Invaders Deluxe")
+window.setup(width=SCREEN_WIDTH, height=SCREEN_HEIGHT)
 window.tracer(0)
+window.bgcolor("black")
 
-# Affichage du score et des vies
 score = 0
 lives = 3
-level = 1
+game_over = False
+
+# Affichage Score/Vies
 score_display = turtle.Turtle()
-score_display.speed(0)
-score_display.color("white")
-score_display.penup()
 score_display.hideturtle()
-score_display.goto(-380, 260)
-score_display.write(f"Score: {score}  Vies: {lives}  Niveau: {level}", font=("Courier", 14, "normal"))
+score_display.penup()
+score_display.color("white")
+score_display.goto(-SCREEN_WIDTH // 2 + 20, SCREEN_HEIGHT // 2 - 40)
 
-# Définition des formes
-img_player = "images/image.gif"
-img_enemy = "images/enemy_classic.gif"
-window.register_shape(img_player)
-window.register_shape(img_enemy)
-window.register_shape("laser", ((-1,-10), (1,-10), (1,10), (-1,10)))
+def update_score_display():
+    score_display.clear()
+    score_display.write(f"Score: {score}  |  Vies: {lives}", font=("Courier", 16, "bold"))
 
-# Initialisation du vaisseau du joueur
+update_score_display()
+
+# =============================
+# ACTEURS
+# =============================
 player = turtle.Turtle()
-player.speed(0)
-player.shape(img_player) 
+if os.path.exists(PLAYER_IMG_SRC):
+    window.register_shape(PLAYER_IMG_SRC)
+    player.shape(PLAYER_IMG_SRC)
+else:
+    player.shape("triangle")
+    player.color("blue")
+player.shapesize(*PLAYER_SCALE)
 player.penup()
-player.goto(0, -250)
-player.setheading(90)
+player.goto(0, -SCREEN_HEIGHT // 2 + 50)
 
-# Initialisation des projectiles
 bullet = turtle.Turtle()
-bullet.speed(0)
-bullet.shape("laser")
-bullet.color("white")
+bullet.shape("square")
+bullet.color("cyan")
+bullet.shapesize(0.1, 1)
+bullet.setheading(90)
 bullet.penup()
 bullet.hideturtle()
 bullet_state = "ready"
 
-# Initialisation des ennemis
-ennemies = []
-enemy_speed = 20      
+# Enregistrement des formes ennemis (une seule fois)
+ENEMY_SHAPES = []
+for i, src in enumerate(ENEMY_IMGS_SRC):
+    if os.path.exists(src):
+        window.register_shape(src)
+        ENEMY_SHAPES.append(src)
+    else:
+        ENEMY_SHAPES.append(None)
 
-# Fonctions de déplacement
-player_dx = 0
-player_dy = 0
+enemies = []
+bonuses = []
 
-def move_left():
-    global player_dx
-    player_dx = -15
+# =============================
+# FONCTIONS DE JEU
+# =============================
+def spawn_enemy():
+    enemy = turtle.Turtle()
+    idx = random.randint(0, len(ENEMY_SHAPES) - 1)
+    shape = ENEMY_SHAPES[idx]
+    if shape:
+        enemy.shape(shape)
+    else:
+        enemy.shape("circle")
+        colors = ["red", "purple", "orange"]
+        enemy.color(colors[idx % 3])
+    enemy.shapesize(*ENEMY_SCALE)
+    enemy.penup()
+    enemy.goto(random.randint(-350, 350), SCREEN_HEIGHT // 2)
+    enemies.append(enemy)
 
-def move_right():
-    global player_dx
-    player_dx = 15
+def spawn_bonus(x, y):
+    if random.random() < 0.25:  # 25% de chance
+        bonus = turtle.Turtle()
+        b_type = random.choice(["life", "score"])
+        bonus.type = b_type
+        bonus.shape("diamond" if b_type == "life" else "circle")
+        bonus.color("green" if b_type == "life" else "yellow")
+        bonus.penup()
+        bonus.goto(x, y)
+        bonuses.append(bonus)
 
-def move_up():
-    global player_dy
-    player_dy = 15
+def play_sound():
+    if SOUND_AVAILABLE and os.path.exists(EXPLOSION_SOUND):
+        winsound.PlaySound(EXPLOSION_SOUND, winsound.SND_ASYNC)
 
-def move_down():
-    global player_dy
-    player_dy = -15
-    
-def stop_move_x():
-    global player_dx
-    player_dx = 0
+# =============================
+# CONTRÔLES (G, D, H, B)
+# =============================
+def move_left():  player.setx(max(-370, player.xcor() - PLAYER_SPEED))
+def move_right(): player.setx(min(370, player.xcor() + PLAYER_SPEED))
+def move_up():    player.sety(min(250, player.ycor() + PLAYER_SPEED))
+def move_down():  player.sety(max(-270, player.ycor() - PLAYER_SPEED))
 
-def stop_move_y():
-    global player_dy
-    player_dy = 0
-    
 def fire_bullet():
-    global bullet_state 
+    global bullet_state
     if bullet_state == "ready":
-        winsound.PlaySound("sounds/shoot.wav", winsound.SND_ASYNC)
         bullet_state = "fire"
+        bullet.goto(player.xcor(), player.ycor() + 20)
         bullet.showturtle()
-        bullet.setposition(player.xcor(), player.ycor() + 10)
 
-def move_enemies():
-    global enemy_speed
-    for enemy in ennemies:
-        x = enemy.xcor()
-        x += enemy_speed  
-        enemy.setx(x)
-        
-        if x > 380 or x < -380:
-            enemy_speed *= -1
-            for e in ennemies:
-                y = e.ycor()
-                y -= 40
-                e.sety(y)
-            break 
-
-# Écoute des touches
 window.listen()
-window.onkeypress(move_left, "Left")
+window.onkeypress(move_left,  "Left")
 window.onkeypress(move_right, "Right")
-window.onkeypress(move_up, "Up")
-window.onkeypress(move_down, "Down")
-window.onkeyrelease(stop_move_x, "Left")
-window.onkeyrelease(stop_move_x, "Right")
-window.onkeyrelease(stop_move_y, "Up")
-window.onkeyrelease(stop_move_y, "Down")
+window.onkeypress(move_up,    "Up")
+window.onkeypress(move_down,  "Down")
 window.onkeypress(fire_bullet, "space")
 
-def restart_game():
-    global score, lives, level, bullet_state, ennemies, enemy_speed, player_dx, player_dy
-    score = 0
-    lives = 3
-    level = 1
-    bullet_state = "ready"
-    player_dx = 0
-    player_dy = 0
-    setup_level()
+# =============================
+# BOUCLE PRINCIPALE
+# =============================
+spawn_timer = 0
 
-def setup_level():
-    global ennemies, level, enemy_speed
-    score_display.clear()
-    score_display.goto(-380, 260)
-    score_display.write(f"Score: {score}  Vies: {lives}  Niveau: {level}", font=("Courier", 14, "normal"))
-    
-    player.goto(0, -250)
-    bullet.hideturtle()
-    
-    num_enemies = 5 + (level - 1)
-    enemy_speed = 8 + (level * 2)
-    
-    for enemy in ennemies:
-        enemy.hideturtle()
-    ennemies.clear()
-    
-    for i in range(num_enemies):
-        enemy = turtle.Turtle()
-        enemy.speed(0)
-        enemy.shape(img_enemy)
-        enemy.penup()
-        x = -350 + (i % 8) * 90
-        y = 250 - (i // 8) * 50
-        enemy.goto(x, y)
-        ennemies.append(enemy)
-    run_game_loop()
+while not game_over:
+    window.update()
+    time.sleep(0.02)
 
-def run_game_loop():
-    global lives, score, level, bullet_state, enemy_speed
-    while lives > 0:
-        window.update()
-        time.sleep(0.02)
-        
-        new_x = player.xcor() + player_dx
-        new_y = player.ycor() + player_dy
-        
-        if -380 < new_x < 380:
-            player.setx(new_x)
-        if -280 < new_y < 0:
-            player.sety(new_y)
-            
-        move_enemies()
+    # Spawn ennemis
+    spawn_timer += 1
+    if spawn_timer > ENEMY_SPAWN_DELAY:
+        spawn_enemy()
+        spawn_timer = 0
 
-        if bullet_state == "fire":
-            y = bullet.ycor()
-            bullet.sety(y + 20)
-            
-        if bullet.ycor() > 280:
+    # Mouvement Bullet
+    if bullet_state == "fire":
+        bullet.sety(bullet.ycor() + BULLET_SPEED)
+        if bullet.ycor() > SCREEN_HEIGHT // 2:
             bullet.hideturtle()
             bullet_state = "ready"
-            
-        for enemy in ennemies[:]:
-            if enemy.distance(player) < 30:
-                lives = 0
-                break
-                
-            if bullet_state == "fire" and enemy.distance(bullet) < 30:
-                winsound.PlaySound("sounds/explosion.wav", winsound.SND_ASYNC)
-                score += 10
-                score_display.clear()
-                score_display.write(f"Score: {score}  Vies: {lives}  Niveau: {level}", font=("Courier", 14, "normal"))
-                bullet.hideturtle()
-                bullet_state = "ready"
-                bullet.sety(-1000)
-                enemy.hideturtle()
-                ennemies.remove(enemy)
-                
-        if len(ennemies) == 0:
-            level += 1
-            setup_level()
-            return
 
-    # Fin de partie
-    score_display.goto(0, 0)
-    score_display.write(f"GAME OVER\nScore: {score}  Niveau: {level}\nAppuyez sur 'R' pour recommencer", align="center", font=("Courier", 20, "normal"))
+    # Gestion Ennemis
+    for enemy in enemies[:]:
+        enemy.sety(enemy.ycor() - ENEMY_SPEED)
 
-# Écoute de la touche R pour redémarrer
-window.onkeypress(restart_game, "r")
-window.onkeypress(restart_game, "R")
+        # Collision Tir/Ennemi
+        if bullet_state == "fire" and enemy.distance(bullet) < 25:
+            score += 10
+            spawn_bonus(enemy.xcor(), enemy.ycor())
+            play_sound()
+            enemy.hideturtle()
+            enemies.remove(enemy)
+            bullet.hideturtle()
+            bullet_state = "ready"
+            update_score_display()
 
-restart_game()
+        # Collision Joueur/Ennemi
+        elif enemy.distance(player) < 30:
+            lives -= 1
+            enemy.hideturtle()
+            enemies.remove(enemy)
+            update_score_display()
+            if lives <= 0:
+                game_over = True
+
+        # Sortie écran
+        elif enemy.ycor() < -300:
+            enemy.hideturtle()
+            enemies.remove(enemy)
+
+    # Gestion Bonus
+    for bonus in bonuses[:]:
+        bonus.sety(bonus.ycor() - 4)
+        if bonus.distance(player) < 30:
+            if bonus.type == "life":
+                lives += 1
+            else:
+                score += 50
+            bonus.hideturtle()
+            bonuses.remove(bonus)
+            update_score_display()
+        elif bonus.ycor() < -300:
+            bonus.hideturtle()
+            bonuses.remove(bonus)
+
+# FIN
+score_display.goto(0, 0)
+score_display.write("GAME OVER", align="center", font=("Courier", 36, "bold"))
+window.update()
 window.mainloop()
