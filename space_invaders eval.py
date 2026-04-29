@@ -1,4 +1,4 @@
-import turtle 
+import turtle
 import time
 import random
 import os
@@ -6,34 +6,44 @@ import os
 # ── Son multiplateforme via pygame ──────────────────────────────────────────
 try:
     import pygame
+    pygame.mixer.pre_init(44100, -16, 2, 512)
     pygame.mixer.init()
     SOUND_AVAILABLE = True
-except Exception:
+    print("[SON] pygame.mixer initialisé avec succès")
+except Exception as e:
     SOUND_AVAILABLE = False
+    print(f"[SON] Echec init pygame : {e}")
 
-MUSIC_FILE     = "song.wav"       # musique de fond en boucle
-EXPLOSION_FILE = "explosion.wav"  # son au moment de l'explosion (optionnel)
+MUSIC_FILE     = "song.wav"
+EXPLOSION_FILE = "explosion.wav"
 
 def start_music():
-    """Lance la musique de fond en boucle dès le démarrage."""
-    if SOUND_AVAILABLE and os.path.exists(MUSIC_FILE):
-        try:
-            pygame.mixer.music.load(MUSIC_FILE)
-            pygame.mixer.music.set_volume(0.5)
-            pygame.mixer.music.play(-1)  # -1 = boucle infinie
-        except Exception:
-            pass
+    if not SOUND_AVAILABLE:
+        print("[SON] pygame non disponible, musique ignorée")
+        return
+    if not os.path.exists(MUSIC_FILE):
+        print(f"[SON] Fichier introuvable : {os.path.abspath(MUSIC_FILE)}")
+        return
+    try:
+        pygame.mixer.music.load(MUSIC_FILE)
+        pygame.mixer.music.set_volume(0.7)
+        pygame.mixer.music.play(-1)
+        print(f"[SON] Musique démarrée : {MUSIC_FILE}")
+    except Exception as e:
+        print(f"[SON] Erreur lecture musique : {e}")
 
 def play_explosion():
-    """Son ponctuel à chaque destruction d'ennemi."""
-    if SOUND_AVAILABLE and os.path.exists(EXPLOSION_FILE):
-        try:
-            pygame.mixer.Sound(EXPLOSION_FILE).play()
-        except Exception:
-            pass
+    if not SOUND_AVAILABLE:
+        return
+    if not os.path.exists(EXPLOSION_FILE):
+        return
+    try:
+        pygame.mixer.Sound(EXPLOSION_FILE).play()
+    except Exception as e:
+        print(f"[SON] Erreur explosion : {e}")
 
-
-# CONFIGURATIONS
+# =============================
+# CONFIGURATION
 # =============================
 IMAGE_DIR = "images"
 
@@ -78,8 +88,6 @@ def update_score_display():
     )
 
 update_score_display()
-
-# ── Démarrage de la musique de fond ─────────────────────────────────────────
 start_music()
 
 # =============================
@@ -100,7 +108,6 @@ def show_explosion(x, y):
     COLORS   = ["yellow", "orange", "red", "white"]
     STEPS    = 6
     DISTANCE = 5
-
     particles = []
     for angle in [i * 45 for i in range(8)]:
         p = _get_particle()
@@ -111,14 +118,12 @@ def show_explosion(x, y):
         p.setheading(angle)
         p.showturtle()
         particles.append(p)
-
     for step in range(STEPS):
         for p in particles:
             p.forward(DISTANCE)
             p.shapesize(0.4 * (1 - step / STEPS))
         window.update()
         time.sleep(0.01)
-
     for p in particles:
         p.hideturtle()
         _explosion_pool.append(p)
