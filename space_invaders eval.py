@@ -1,4 +1,4 @@
-import turtle
+import turtle 
 import time
 import random
 import os
@@ -11,13 +11,24 @@ try:
 except Exception:
     SOUND_AVAILABLE = False
 
-EXPLOSION_SOUND = "explosion.wav"
+MUSIC_FILE     = "song.wav"       # musique de fond en boucle
+EXPLOSION_FILE = "explosion.wav"  # son au moment de l'explosion (optionnel)
 
-def play_sound():
-    if SOUND_AVAILABLE and os.path.exists(EXPLOSION_SOUND):
+def start_music():
+    """Lance la musique de fond en boucle dès le démarrage."""
+    if SOUND_AVAILABLE and os.path.exists(MUSIC_FILE):
         try:
-            sound = pygame.mixer.Sound(EXPLOSION_SOUND)
-            sound.play()
+            pygame.mixer.music.load(MUSIC_FILE)
+            pygame.mixer.music.set_volume(0.5)
+            pygame.mixer.music.play(-1)  # -1 = boucle infinie
+        except Exception:
+            pass
+
+def play_explosion():
+    """Son ponctuel à chaque destruction d'ennemi."""
+    if SOUND_AVAILABLE and os.path.exists(EXPLOSION_FILE):
+        try:
+            pygame.mixer.Sound(EXPLOSION_FILE).play()
         except Exception:
             pass
 
@@ -37,8 +48,8 @@ SCREEN_WIDTH      = 800
 SCREEN_HEIGHT     = 600
 PLAYER_SPEED      = 20
 BULLET_SPEED      = 40
-ENEMY_SPEED       = 1      # réduit (était 2)
-ENEMY_SPAWN_DELAY = 80     # réduit la fréquence (était 40)
+ENEMY_SPEED       = 1
+ENEMY_SPAWN_DELAY = 80
 
 # =============================
 # FENÊTRE ET ÉTAT
@@ -67,6 +78,9 @@ def update_score_display():
     )
 
 update_score_display()
+
+# ── Démarrage de la musique de fond ─────────────────────────────────────────
+start_music()
 
 # =============================
 # EXPLOSION VISUELLE
@@ -232,7 +246,7 @@ while not game_over:
             bullet.hideturtle()
             bullet_state = "ready"
             update_score_display()
-            play_sound()
+            play_explosion()
             show_explosion(ex, ey)
 
         elif enemy.distance(player) < 30:
@@ -256,6 +270,8 @@ while not game_over:
             bonuses.remove(bonus)
 
 # FIN
+if SOUND_AVAILABLE:
+    pygame.mixer.music.stop()
 score_display.goto(0, 0)
 score_display.write("GAME OVER", align="center", font=("Courier", 36, "bold"))
 window.update()
