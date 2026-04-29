@@ -1,21 +1,4 @@
-'''
-Bonjour à tous !
-
-Votre objectif aujourd'hui, que vous l'acceptiez ou non, va être de terminer 
-ce Space Invaders en utilisant la bibliothèque Turtle avec Python.
-
-Vous avez déjà un début de code permettant d'initialiser la fenêtre et le 
-joueur. Il vous donc rajouter les fonctionnalités suivantes :
-- l'initialisation des ennemis
-- le déplacement des ennemis vers le bas de l'écran ou sur les côtés
-- la capacité de pouvoir tirer pour le joueur
-- la gestion des collisions
-- plus tout autre bonus que vous jugerez adéquat !
-
-Bon courage !
-'''
-
-import turtle
+import turtle 
 import time
 import random
 import os
@@ -41,9 +24,6 @@ try:
 except:
     pass
 
-# Affichage du score et des vies
-score = 0
-lives = 3
 score_display = turtle.Turtle()
 score_display.speed(0)
 score_display.color("white")
@@ -57,14 +37,60 @@ def update_ui():
 
 update_ui()
 
-# Initialisation du vaisseau du joueur
+# ── Démarrage de la musique de fond ─────────────────────────────────────────
+start_music()
+
+# =============================
+# EXPLOSION VISUELLE
+# =============================
+_explosion_pool = []
+
+def _get_particle():
+    if _explosion_pool:
+        t = _explosion_pool.pop()
+    else:
+        t = turtle.Turtle()
+        t.penup()
+        t.hideturtle()
+    return t
+
+def show_explosion(x, y):
+    COLORS   = ["yellow", "orange", "red", "white"]
+    STEPS    = 6
+    DISTANCE = 5
+
+    particles = []
+    for angle in [i * 45 for i in range(8)]:
+        p = _get_particle()
+        p.shape("circle")
+        p.shapesize(0.4, 0.4)
+        p.color(random.choice(COLORS))
+        p.goto(x, y)
+        p.setheading(angle)
+        p.showturtle()
+        particles.append(p)
+
+    for step in range(STEPS):
+        for p in particles:
+            p.forward(DISTANCE)
+            p.shapesize(0.4 * (1 - step / STEPS))
+        window.update()
+        time.sleep(0.01)
+
+    for p in particles:
+        p.hideturtle()
+        _explosion_pool.append(p)
+
+# =============================
+# ACTEURS
+# =============================
 player = turtle.Turtle()
 player.speed(0)
 if os.path.exists(IMG_PLAYER):
     player.shape(IMG_PLAYER)
 else:
     player.shape("triangle")
-    player.color("orange")
+    player.color("blue")
 player.penup()
 player.goto(0, -250)
 player.setheading(90)
@@ -80,13 +106,31 @@ bullet.hideturtle()
 bullet.setheading(90)
 bullet_state = "ready"
 
-# Liste pour stocker les ennemis
+ENEMY_SHAPES = []
+for src in ENEMY_IMGS_SRC:
+    if os.path.exists(src):
+        window.register_shape(src)
+        ENEMY_SHAPES.append(src)
+    else:
+        ENEMY_SHAPES.append(None)
+
 enemies = []
 
-# Fonctions de déplacement
-def move_left():
-    x = player.xcor()
-    if x > -380: player.setx(x - 20)
+# =============================
+# FONCTIONS DE JEU
+# =============================
+def spawn_enemy():
+    enemy = turtle.Turtle()
+    idx   = random.randint(0, len(ENEMY_SHAPES) - 1)
+    shape = ENEMY_SHAPES[idx]
+    if shape:
+        enemy.shape(shape)
+    else:
+        enemy.shape("circle")
+        enemy.color(["red", "purple", "orange"][idx % 3])
+    enemy.penup()
+    enemy.goto(random.randint(-350, 350), SCREEN_HEIGHT // 2)
+    enemies.append(enemy)
 
 def move_right():
     x = player.xcor()
@@ -150,16 +194,14 @@ while lives > 0:
     for enemy in enemies[:]:
         enemy.sety(enemy.ycor() - 3) # Vitesse de descente
 
-        # Collision Tir / Ennemi
         if bullet_state == "fire" and enemy.distance(bullet) < 25:
             score += 10
             bullet.hideturtle()
             bullet_state = "ready"
-            enemy.hideturtle()
-            enemies.remove(enemy)
-            update_ui()
+            update_score_display()
+            play_explosion()
+            show_explosion(ex, ey)
 
-        # Collision Joueur / Ennemi
         elif enemy.distance(player) < 30:
             lives -= 1
             enemy.hideturtle()
@@ -171,7 +213,26 @@ while lives > 0:
             enemy.hideturtle()
             enemies.remove(enemy)
 
-# Fin de partie
+        elif enemy.ycor() < -SCREEN_HEIGHT // 2 + 30:
+            lose_life(enemy)
+
+    for bonus in bonuses[:]:
+        bonus.sety(bonus.ycor() - 4)
+        if bonus.distance(player) < 30:
+            if bonus.type == "life":
+                lives += 1
+            else:
+                score += 50
+            bonus.hideturtle()
+            bonuses.remove(bonus)
+            update_score_display()
+        elif bonus.ycor() < -300:
+            bonus.hideturtle()
+            bonuses.remove(bonus)
+
+# FIN
+if SOUND_AVAILABLE:
+    pygame.mixer.music.stop()
 score_display.goto(0, 0)
 score_display.write("GAME OVER", align="center", font=("Courier", 24, "bold"))
 
