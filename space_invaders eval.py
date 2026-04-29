@@ -1,29 +1,69 @@
-import turtle 
+'''
+Bonjour à tous !
+
+Votre objectif aujourd'hui, que vous l'acceptiez ou non, va être de terminer 
+ce Space Invaders en utilisant la bibliothèque Turtle avec Python.
+
+Vous avez déjà un début de code permettant d'initialiser la fenêtre et le 
+joueur. Il vous donc rajouter les fonctionnalités suivantes :
+- l'initialisation des ennemis
+- le déplacement des ennemis vers le bas de l'écran ou sur les côtés
+- la capacité de pouvoir tirer pour le joueur
+- la gestion des collisions
+- plus tout autre bonus que vous jugerez adéquat !
+
+Bon courage !
+'''
+
+import turtle
 import time
 import random
 import os
+import sys
 
-# --- Chemins des images ---
-IMG_PLAYER = "images/image.gif"
-IMG_ENEMIES = ["images/enemy1.gif", "images/enemy2.gif", "images/enemy3.gif"]
+# --- Gestion des ressources (PyInstaller / Chemins) ---
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
-# Initialisation de la fenêtre
+# --- Gestion du Son (Pygame) ---
+try:
+    import pygame
+    pygame.mixer.init()
+    SOUND_AVAILABLE = True
+except Exception:
+    SOUND_AVAILABLE = False
+
+EXPLOSION_SOUND = resource_path(os.path.join("sounds", "explosion.wav"))
+
+def play_sound():
+    if SOUND_AVAILABLE and os.path.exists(EXPLOSION_SOUND):
+        try:
+            pygame.mixer.Sound(EXPLOSION_SOUND).play()
+        except: pass
+
+# =============================
+# CONFIGURATION ET FENÊTRE
+# =============================
 window = turtle.Screen()
-window.title("Space Invaders")
+window.title("Space Invaders Deluxe")
 window.bgcolor("#000033")
 window.setup(width=800, height=600)
 window.tracer(0)
 
-# Enregistrement des formes personnalisées (si elles existent)
-try:
-    if os.path.exists(IMG_PLAYER):
-        window.register_shape(IMG_PLAYER)
-    for img in IMG_ENEMIES:
-        if os.path.exists(img):
-            window.register_shape(img)
-except:
-    pass
+IMAGE_DIR = "images"
+BG_IMG = resource_path(os.path.join(IMAGE_DIR, "galaxie.gif"))
+if os.path.exists(BG_IMG):
+    window.bgpic(BG_IMG)
 
+score = 0
+lives = 3
+game_over = False
+
+# Affichage UI
 score_display = turtle.Turtle()
 score_display.speed(0)
 score_display.color("white")
@@ -33,47 +73,74 @@ score_display.goto(-380, 260)
 
 def update_ui():
     score_display.clear()
-    score_display.write(f"Score: {score}  Vies: {lives}", font=("Courier", 14, "normal"))
+    score_display.write(f"Score: {score}  |  Vies: {lives}", font=("Courier", 16, "bold"))
 
 update_ui()
 
-# ── Démarrage de la musique de fond ─────────────────────────────────────────
-start_music()
+# =============================
+# ACTEURS (Joueur, Projectile, Ennemis)
+# =============================
 
-# =============================
-# EXPLOSION VISUELLE
-# =============================
+# Configuration images
+PLAYER_IMG = resource_path(os.path.join(IMAGE_DIR, "image.gif"))
+ENEMY_IMGS = [
+    resource_path(os.path.join(IMAGE_DIR, "enemy1.gif")),
+    resource_path(os.path.join(IMAGE_DIR, "enemy2.gif")),
+    resource_path(os.path.join(IMAGE_DIR, "enemy3.gif")),
+]
+
+# Initialisation Joueur
+player = turtle.Turtle()
+if os.path.exists(PLAYER_IMG):
+    window.register_shape(PLAYER_IMG)
+    player.shape(PLAYER_IMG)
+else:
+    player.shape("triangle")
+    player.color("orange")
+player.penup()
+player.goto(0, -250)
+player.setheading(90)
+
+# Initialisation Projectile
+bullet = turtle.Turtle()
+bullet.shape("square")
+bullet.color("cyan")
+bullet.shapesize(0.1, 1)
+bullet.penup()
+bullet.hideturtle()
+bullet.setheading(90)
+bullet_state = "ready"
+
+# Préparation Ennemis
+ENEMY_SHAPES = []
+for src in ENEMY_IMGS:
+    if os.path.exists(src):
+        window.register_shape(src)
+        ENEMY_SHAPES.append(src)
+
+enemies = []
+bonuses = []
 _explosion_pool = []
 
-def _get_particle():
-    if _explosion_pool:
-        t = _explosion_pool.pop()
-    else:
-        t = turtle.Turtle()
-        t.penup()
-        t.hideturtle()
-    return t
-
+# =============================
+# LOGIQUE DES PARTICULES
+# =============================
 def show_explosion(x, y):
-    COLORS   = ["yellow", "orange", "red", "white"]
-    STEPS    = 6
-    DISTANCE = 5
-
     particles = []
-    for angle in [i * 45 for i in range(8)]:
-        p = _get_particle()
+    for _ in range(8):
+        p = _explosion_pool.pop() if _explosion_pool else turtle.Turtle()
+        p.penup()
         p.shape("circle")
         p.shapesize(0.4, 0.4)
-        p.color(random.choice(COLORS))
+        p.color(random.choice(["yellow", "orange", "red", "white"]))
         p.goto(x, y)
-        p.setheading(angle)
+        p.setheading(random.randint(0, 360))
         p.showturtle()
         particles.append(p)
 
-    for step in range(STEPS):
+    for _ in range(6):
         for p in particles:
-            p.forward(DISTANCE)
-            p.shapesize(0.4 * (1 - step / STEPS))
+            p.forward(5)
         window.update()
         time.sleep(0.01)
 
@@ -82,76 +149,50 @@ def show_explosion(x, y):
         _explosion_pool.append(p)
 
 # =============================
-# ACTEURS
-# =============================
-player = turtle.Turtle()
-player.speed(0)
-if os.path.exists(IMG_PLAYER):
-    player.shape(IMG_PLAYER)
-else:
-    player.shape("triangle")
-    player.color("blue")
-player.penup()
-player.goto(0, -250)
-player.setheading(90)
-
-# Initialisation des projectiles
-bullet = turtle.Turtle()
-bullet.speed(0)
-bullet.shape("square")
-bullet.color("yellow")
-bullet.shapesize(stretch_wid=0.2, stretch_len=0.5)
-bullet.penup()
-bullet.hideturtle()
-bullet.setheading(90)
-bullet_state = "ready"
-
-ENEMY_SHAPES = []
-for src in ENEMY_IMGS_SRC:
-    if os.path.exists(src):
-        window.register_shape(src)
-        ENEMY_SHAPES.append(src)
-    else:
-        ENEMY_SHAPES.append(None)
-
-enemies = []
-
-# =============================
 # FONCTIONS DE JEU
 # =============================
 def spawn_enemy():
     enemy = turtle.Turtle()
-    idx   = random.randint(0, len(ENEMY_SHAPES) - 1)
-    shape = ENEMY_SHAPES[idx]
-    if shape:
-        enemy.shape(shape)
+    enemy.penup()
+    if ENEMY_SHAPES:
+        enemy.shape(random.choice(ENEMY_SHAPES))
     else:
         enemy.shape("circle")
-        enemy.color(["red", "purple", "orange"][idx % 3])
-    enemy.penup()
-    enemy.goto(random.randint(-350, 350), SCREEN_HEIGHT // 2)
+        enemy.color("red")
+    enemy.goto(random.randint(-350, 350), 300)
     enemies.append(enemy)
 
-def move_right():
-    x = player.xcor()
-    if x < 380: player.setx(x + 20)
+def spawn_bonus(x, y):
+    if random.random() < 0.25:
+        bonus = turtle.Turtle()
+        bonus.penup()
+        bonus.type = random.choice(["life", "score"])
+        bonus.shape("turtle" if bonus.type == "life" else "circle")
+        bonus.color("green" if bonus.type == "life" else "yellow")
+        bonus.goto(x, y)
+        bonuses.append(bonus)
 
-def move_up():
-    y = player.ycor()
-    if y < 0: player.sety(y + 20)
+def lose_life(enemy):
+    global lives, game_over
+    lives -= 1
+    enemy.hideturtle()
+    if enemy in enemies: enemies.remove(enemy)
+    update_ui()
+    if lives <= 0: game_over = True
 
-def move_down():
-    y = player.ycor()
-    if y > -280: player.sety(y - 20)
+# Contrôles
+def move_left():  player.setx(max(-370, player.xcor() - 20))
+def move_right(): player.setx(min(370, player.xcor() + 20))
+def move_up():    player.sety(min(250, player.ycor() + 20))
+def move_down():  player.sety(max(-270, player.ycor() - 20))
 
 def fire_bullet():
     global bullet_state
     if bullet_state == "ready":
         bullet_state = "fire"
-        bullet.goto(player.xcor(), player.ycor() + 10)
+        bullet.goto(player.xcor(), player.ycor() + 20)
         bullet.showturtle()
 
-# Écoute des touches
 window.listen()
 window.onkeypress(move_left, "Left")
 window.onkeypress(move_right, "Right")
@@ -159,81 +200,64 @@ window.onkeypress(move_up, "Up")
 window.onkeypress(move_down, "Down")
 window.onkeypress(fire_bullet, "space")
 
-# Boucle de jeu
+# =============================
+# BOUCLE PRINCIPALE
+# =============================
 spawn_timer = 0
-while lives > 0:
+
+while not game_over:
     window.update()
     time.sleep(0.02)
 
-    # Apparition des ennemis
+    # Spawn ennemis
     spawn_timer += 1
     if spawn_timer > 40:
-        enemy = turtle.Turtle()
-        # Choisir une image au hasard parmi la liste
-        img_choice = random.choice(IMG_ENEMIES)
-        if os.path.exists(img_choice):
-            enemy.shape(img_choice)
-        else:
-            enemy.shape("circle")
-            enemy.color("red")
-        
-        enemy.penup()
-        enemy.speed(0)
-        enemy.goto(random.randint(-350, 350), 280)
-        enemies.append(enemy)
+        spawn_enemy()
         spawn_timer = 0
 
-    # Gestion des tirs
+    # Mouvement Bullet
     if bullet_state == "fire":
-        bullet.forward(20)
+        bullet.forward(40)
         if bullet.ycor() > 300:
             bullet.hideturtle()
             bullet_state = "ready"
 
-    # Déplacement des ennemis et collisions
+    # Mouvement Ennemis
     for enemy in enemies[:]:
-        enemy.sety(enemy.ycor() - 3) # Vitesse de descente
+        enemy.sety(enemy.ycor() - 2)
 
+        # Collision Bullet / Enemy
         if bullet_state == "fire" and enemy.distance(bullet) < 25:
+            ex, ey = enemy.xcor(), enemy.ycor()
             score += 10
+            spawn_bonus(ex, ey)
+            enemy.hideturtle()
+            enemies.remove(enemy)
             bullet.hideturtle()
             bullet_state = "ready"
-            update_score_display()
-            play_explosion()
+            update_ui()
+            play_sound()
             show_explosion(ex, ey)
 
-        elif enemy.distance(player) < 30:
-            lives -= 1
-            enemy.hideturtle()
-            enemies.remove(enemy)
-            update_ui()
-            
-        # Ennemi qui sort par le bas
-        elif enemy.ycor() < -300:
-            enemy.hideturtle()
-            enemies.remove(enemy)
-
-        elif enemy.ycor() < -SCREEN_HEIGHT // 2 + 30:
+        # Collision Player / Enemy
+        elif enemy.distance(player) < 30 or enemy.ycor() < -280:
             lose_life(enemy)
 
+    # Mouvement Bonus
     for bonus in bonuses[:]:
         bonus.sety(bonus.ycor() - 4)
         if bonus.distance(player) < 30:
-            if bonus.type == "life":
-                lives += 1
-            else:
-                score += 50
+            if bonus.type == "life": lives += 1
+            else: score += 50
             bonus.hideturtle()
             bonuses.remove(bonus)
-            update_score_display()
+            update_ui()
         elif bonus.ycor() < -300:
             bonus.hideturtle()
             bonuses.remove(bonus)
 
-# FIN
-if SOUND_AVAILABLE:
-    pygame.mixer.music.stop()
+# FIN DE PARTIE
 score_display.goto(0, 0)
-score_display.write("GAME OVER", align="center", font=("Courier", 24, "bold"))
-
+score_display.write("GAME OVER", align="center", font=("Courier", 36, "bold"))
+window.update()
 window.mainloop()
